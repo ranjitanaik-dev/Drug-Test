@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">ಡ್ರಗ್‌ಟೆಸ್ಟ್ ಸಾಥಿ</string>
+    <string name="app_subtitle">ಫೀಲ್ಡ್ ಡ್ರಗ್ ಪರೀಕ್ಷೆಗೆ ಡಿಜಿಟಲ್ ಸಾಥಿ</string>
+    <string name="nav_about">ಕುರಿತು</string>
+    <string name="nav_how_it_works">ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ</string>
+    <string name="nav_features">ವೈಶಿಷ್ಟ್ಯಗಳು</string>
+    <string name="nav_contact">ಸಂಪರ್ಕಿಸಿ</string>
+    <string name="nav_login">ಅಧಿಕಾರಿ ಲಾಗಿನ್</string>
+    <string name="nav_dashboard">ಅಧಿಕಾರಿ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್</string>
+    <string name="btn_start_new_test">ಹೊಸ ಪರೀಕ್ಷೆ ಪ್ರಾರಂಭಿಸಿ</string>
+    <string name="btn_start_new_case">ಹೊಸ ಪ್ರಕರಣ ದಾಖಲಿಸಿ</string>
+    <string name="btn_history">ಪರೀಕ್ಷಾ ಇತಿಹಾಸ</string>
+    <string name="btn_settings">ಸನ್ನಿವೇಶಗಳು (Settings)</string>
+    <string name="label_language">ಭಾಷೆ (Language)</string>
+    <string name="result_positive">ಧನಾತ್ಮಕ (POSITIVE)</string>
+    <string name="result_negative">ಋಣಾತ್ಮಕ (NEGATIVE)</string>
+    <string name="result_inconclusive">ಅನಿರ್ದಿಷ್ಟ (INCONCLUSIVE)</string>
+    <string name="label_confidence">ನಂಬಿಕೆ ಮಟ್ಟ (Confidence)</string>
+    <string name="label_distance">ಬಣ್ಣದ ಅಂತರ (Distance)</string>
+    <string name="label_operator_id">ಅಧಿಕಾರಿ ಐಡಿ</string>
+    <string name="label_timestamp">ಸಮಯ ಮತ್ತು ದಿನಾಂಕ</string>
+    <string name="label_test_id">ಪರೀಕ್ಷಾ ಐಡಿ</string>
+    <string name="label_location">ಸ್ಥಳ</string>
+    <string name="label_image_hash">ಚಿತ್ರದ SHA-256 ಹ್ಯಾಶ್</string>
+    <string name="label_digital_signature">ಡಿಜಿಟಲ್ ಸಹಿ</string>
+    <string name="label_integrity_status">ಪ್ರಾಮಾಣಿಕತೆ ಸ್ಥಿತಿ</string>
+    <string name="btn_generate_report">PDF ವರದಿ ರಚಿಸಿ</string>
+    <string name="btn_open_report">ವರದಿ ತೆರೆಯಿರಿ</string>
+    <string name="btn_share_report">ವರದಿ ಹಂಚಿಕೊಳ್ಳಿ</string>
+    <string name="disclaimer_text">ಅಂದಾಜು ಫೀಲ್ಡ್ ಪರೀಕ್ಷಾ ಫಲಿತಾಂಶ. ಕಾನೂನು ಪ್ರಕ್ರಿಯೆಗೆ ಪ್ರಯೋಗಾಲಯದ ದೃಢೀಕರಣ ಕಡ್ಡಾಯವಾಗಿದೆ.</string>
+    <string name="language_test_key">LANGUAGE_KANNADA_TEST</string>
+</resources>

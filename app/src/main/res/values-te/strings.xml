@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">డ్రగ్ టెస్ట్ కాంపాక్షన్</string>
+    <string name="app_subtitle">ఫీల్డ్ డ్రగ్ పరీక్షల కోసం డిజిటల్ సహాయకుడు</string>
+    <string name="nav_about">గురించి</string>
+    <string name="nav_how_it_works">ఇది ఎలా పనిచేస్తుంది</string>
+    <string name="nav_features">లక్షణాలు</string>
+    <string name="nav_contact">సంప్రదించండి</string>
+    <string name="nav_login">అధికారి లాగిన్</string>
+    <string name="nav_dashboard">అధికారి డాష్‌బోర్డ్</string>
+    <string name="btn_start_new_test">కొత్త పరీక్ష ప్రారంభించండి</string>
+    <string name="btn_start_new_case">కొత్త కేసు నమోదు చేయండి</string>
+    <string name="btn_history">పరీక్షల చరిత్ర</string>
+    <string name="btn_settings">సెట్టింగ్‌లు (Settings)</string>
+    <string name="label_language">భాష (Language)</string>
+    <string name="result_positive">సానుకూల (POSITIVE)</string>
+    <string name="result_negative">ప్రతికూల (NEGATIVE)</string>
+    <string name="result_inconclusive">అనిశ్చిత (INCONCLUSIVE)</string>
+    <string name="label_confidence">విశ్వసనీయత (Confidence)</string>
+    <string name="label_distance">రంగు దూరం (Distance)</string>
+    <string name="label_operator_id">ఆపరేటర్ ఐడీ</string>
+    <string name="label_timestamp">సమయం మరియు తేదీ</string>
+    <string name="label_test_id">పరీక్ష ఐడీ</string>
+    <string name="label_location">ప్రదేశం</string>
+    <string name="label_image_hash">ఇమేజ్ SHA-256 హ్యాష్</string>
+    <string name="label_digital_signature">డిజిటల్ సంతకం</string>
+    <string name="label_integrity_status">సమగ్రత స్థితి</string>
+    <string name="btn_generate_report">PDF నివేదిక రూపొందించండి</string>
+    <string name="btn_open_report">నివేదిక తెరవండి</string>
+    <string name="btn_share_report">నివేదిక పంచుకోండి</string>
+    <string name="disclaimer_text">అంచనా ఫీల్డ్-పరీక్ష ఫలితం. చట్టపరమైన ప్రక్రియకు ప్రయోగశాల నిర్ధారణ తప్పనిసరి.</string>
+    <string name="language_test_key">LANGUAGE_TELUGU_TEST</string>
+</resources>

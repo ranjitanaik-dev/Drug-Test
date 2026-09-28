@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">டிரக்டெஸ்ட் தோழன்</string>
+    <string name="app_subtitle">கள போதைப்பொருள் சோதனைக்கான டிஜிட்டல் தோழன்</string>
+    <string name="nav_about">பற்றி</string>
+    <string name="nav_how_it_works">இது எவ்வாறு செயல்படுகிறது</string>
+    <string name="nav_features">அம்சங்கள்</string>
+    <string name="nav_contact">தொடர்பு கொள்ள</string>
+    <string name="nav_login">அதிகாரி உள்நுழைவு</string>
+    <string name="nav_dashboard">அதிகாரி டாஷ்போர்டு</string>
+    <string name="btn_start_new_test">புதிய சோதனையைத் தொடங்கு</string>
+    <string name="btn_start_new_case">புதிய வழக்கைத் தொடங்கு</string>
+    <string name="btn_history">சோதனை வரலாறு</string>
+    <string name="btn_settings">அமைப்புகள் (Settings)</string>
+    <string name="label_language">மொழி (Language)</string>
+    <string name="result_positive">நேர்மறை (POSITIVE)</string>
+    <string name="result_negative">எதிர்மறை (NEGATIVE)</string>
+    <string name="result_inconclusive">முடிவடையாத (INCONCLUSIVE)</string>
+    <string name="label_confidence">நம்பிக்கை நிலை (Confidence)</string>
+    <string name="label_distance">வண்ண தூரம் (Distance)</string>
+    <string name="label_operator_id">அதிகாரி ஐடி</string>
+    <string name="label_timestamp">நேரம் மற்றும் தேதி</string>
+    <string name="label_test_id">சோதனை ஐடி</string>
+    <string name="label_location">இருப்பிடம்</string>
+    <string name="label_image_hash">பட SHA-256 ஹேஷ்</string>
+    <string name="label_digital_signature">டிஜிட்டல் கையொப்பம்</string>
+    <string name="label_integrity_status">ஒருமைப்பாடு நிலை</string>
+    <string name="btn_generate_report">PDF அறிக்கை உருவாக்கு</string>
+    <string name="btn_open_report">அறிக்கையை திற</string>
+    <string name="btn_share_report">அறிக்கையைப் பகிர்</string>
+    <string name="disclaimer_text">மதிப்பிடப்பட்ட களச் சோதனை முடிவு. சட்டப்பூர்வ நடவடிக்கைக்கு ஆய்வக சோதனை கட்டாயமாகும்.</string>
+    <string name="language_test_key">LANGUAGE_TAMIL_TEST</string>
+</resources>
