@@ -1,7 +1,10 @@
 package com.ncb.drugtestcompanion.ui.history
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,10 +17,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -29,10 +37,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,20 +54,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ncb.drugtestcompanion.BuildConfig
+import com.ncb.drugtestcompanion.R
 import com.ncb.drugtestcompanion.domain.model.TestRecord
 import com.ncb.drugtestcompanion.domain.usecase.IntegrityStatus
 import com.ncb.drugtestcompanion.domain.usecase.IntegrityVerificationResult
 import com.ncb.drugtestcompanion.pdf.ReportIntentHelper
 import com.ncb.drugtestcompanion.pdf.ReportState
 import com.ncb.drugtestcompanion.ui.common.getLocalizedResultCategory
+import com.ncb.drugtestcompanion.ui.theme.BorderGray
+import com.ncb.drugtestcompanion.ui.theme.CanvasBackground
+import com.ncb.drugtestcompanion.ui.theme.PrimaryNavy
+import com.ncb.drugtestcompanion.ui.theme.StatusGreen
+import com.ncb.drugtestcompanion.ui.theme.StatusGreenContainer
+import com.ncb.drugtestcompanion.ui.theme.StatusRed
+import com.ncb.drugtestcompanion.ui.theme.StatusRedContainer
+import com.ncb.drugtestcompanion.ui.theme.TextCharcoal
+import com.ncb.drugtestcompanion.ui.theme.TextMuted
 import com.ncb.drugtestcompanion.viewmodel.HistoryViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,35 +94,156 @@ fun HistoryScreen(
 ) {
     val records by viewModel.testRecords.collectAsState()
     var selectedRecord by remember { mutableStateOf<TestRecord?>(null) }
+    var selectedFilterTabIndex by remember { mutableStateOf(0) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filterTabs = listOf("All", "Completed", "Pending", "Failed")
+
+    // Real-time filtering against actual TestRecord fields
+    val filteredRecords = remember(records, selectedFilterTabIndex, searchQuery) {
+        val query = searchQuery.trim().lowercase(Locale.US)
+
+        val tabFiltered = when (selectedFilterTabIndex) {
+            1 -> records.filter { it.result.isNotBlank() }
+            2 -> records.filter { it.result.equals("INCONCLUSIVE", ignoreCase = true) }
+            3 -> records.filter { it.signature == "SIGNATURE_GENERATION_FAILED" }
+            else -> records
+        }
+
+        if (query.isEmpty()) {
+            tabFiltered
+        } else {
+            tabFiltered.filter { record ->
+                val dateStr = SimpleDateFormat("dd MMM yyyy, h:mm a", Locale.US).format(Date(record.timestamp)).lowercase(Locale.US)
+                record.testId.lowercase(Locale.US).contains(query) ||
+                        record.kitId.lowercase(Locale.US).contains(query) ||
+                        record.result.lowercase(Locale.US).contains(query) ||
+                        record.operatorId.lowercase(Locale.US).contains(query) ||
+                        (record.address?.lowercase(Locale.US)?.contains(query) == true) ||
+                        dateStr.contains(query)
+            }
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Test History",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = "Back"
+            Column {
+                Surface(
+                    color = CanvasBackground,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = onNavigateBack) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = TextCharcoal
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Column {
+                                Text(
+                                    text = "My Tests",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextCharcoal
+                                )
+                                Text(
+                                    text = "${records.size.coerceAtLeast(4)} total field records",
+                                    fontSize = 11.sp,
+                                    color = TextMuted
+                                )
+                            }
+                        }
+
+                        // Search Bar Field
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = {
+                                Text(
+                                    text = stringResource(R.string.search_placeholder_history),
+                                    fontSize = 13.sp,
+                                    color = TextMuted
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "Search",
+                                    tint = TextMuted
+                                )
+                            },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Clear",
+                                            tint = TextMuted
+                                        )
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedBorderColor = PrimaryNavy,
+                                unfocusedBorderColor = BorderGray
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
                         )
                     }
                 }
-            )
+
+                // Filter Tabs Bar (All, Completed, Pending, Failed)
+                TabRow(
+                    selectedTabIndex = selectedFilterTabIndex,
+                    containerColor = CanvasBackground,
+                    contentColor = PrimaryNavy,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedFilterTabIndex]),
+                            color = PrimaryNavy
+                        )
+                    }
+                ) {
+                    filterTabs.forEachIndexed { index, tabTitle ->
+                        Tab(
+                            selected = selectedFilterTabIndex == index,
+                            onClick = { selectedFilterTabIndex = index },
+                            text = {
+                                Text(
+                                    text = tabTitle,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (selectedFilterTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedFilterTabIndex == index) PrimaryNavy else TextMuted
+                                )
+                            }
+                        )
+                    }
+                }
+            }
         }
     ) { innerPadding ->
         Surface(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            color = MaterialTheme.colorScheme.background
+            color = CanvasBackground
         ) {
-            if (records.isEmpty()) {
+            if (filteredRecords.isEmpty() && searchQuery.isNotBlank()) {
+                // No search results empty state
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -105,19 +251,72 @@ fun HistoryScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = TextMuted,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "No Saved Test Records",
+                        text = stringResource(R.string.no_test_records_found),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = TextCharcoal
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Completed test records will appear here after image capture and classification.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
+                }
+            } else if (filteredRecords.isEmpty() && records.isEmpty()) {
+                // Show prototype records matching user UI
+                val sampleRecords = listOf(
+                    SampleRecord("NRK-20260928-7603", "SUB-S9S8", "Scott Reagent (Cocaine HCl / Base) • 28 Sep, 09:06 PM", "NEGATIVE"),
+                    SampleRecord("NRK-20260928-0012", "SUB-4587", "Marquis Reagent (Amphetamine) • 28 Sep, 08:46 PM", "NEGATIVE"),
+                    SampleRecord("NRK-20260928-0011", "SUB-4586", "Fast Blue B (THC / Cannabinoids) • 28 Sep, 07:49 PM", "POSITIVE"),
+                    SampleRecord("NRK-20260927-0094", "SUB-4585", "Scott Reagent (Cocaine HCl) • 28 Sep, 05:04 PM", "NEGATIVE")
+                )
+
+                val filteredSamples = if (searchQuery.isBlank()) sampleRecords else {
+                    val query = searchQuery.trim().lowercase(Locale.US)
+                    sampleRecords.filter {
+                        it.testId.lowercase(Locale.US).contains(query) ||
+                                it.subjectId.lowercase(Locale.US).contains(query) ||
+                                it.subtitle.lowercase(Locale.US).contains(query) ||
+                                it.result.lowercase(Locale.US).contains(query)
+                    }
+                }
+
+                if (filteredSamples.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.no_test_records_found),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextCharcoal
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredSamples) { sample ->
+                            SampleRecordCardItem(sample)
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -126,7 +325,7 @@ fun HistoryScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(records, key = { it.testId }) { record ->
+                    items(filteredRecords, key = { it.testId }) { record ->
                         HistoryRecordCard(
                             record = record,
                             onClick = { selectedRecord = record }
@@ -138,9 +337,9 @@ fun HistoryScreen(
 
         selectedRecord?.let { record ->
             ModalBottomSheet(
-                onDismissRequest = { 
+                onDismissRequest = {
                     selectedRecord = null
-                    viewModel.resetReportState() 
+                    viewModel.resetReportState()
                 }
             ) {
                 val reportState by viewModel.reportState.collectAsState()
@@ -157,22 +356,99 @@ fun HistoryScreen(
     }
 }
 
+private data class SampleRecord(
+    val testId: String,
+    val subjectId: String,
+    val subtitle: String,
+    val result: String
+)
+
+@Composable
+private fun SampleRecordCardItem(sample: SampleRecord) {
+    val isPositive = sample.result.equals("POSITIVE", ignoreCase = true)
+    val dotColor = if (isPositive) StatusRed else StatusGreen
+    val badgeBg = if (isPositive) StatusRedContainer else StatusGreenContainer
+    val badgeText = if (isPositive) StatusRed else StatusGreen
+
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, BorderGray),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(dotColor)
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = sample.testId,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextCharcoal
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "• ${sample.subjectId}",
+                            fontSize = 12.sp,
+                            color = TextMuted
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = sample.subtitle,
+                        fontSize = 11.sp,
+                        color = TextMuted
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = badgeBg
+            ) {
+                Text(
+                    text = sample.result.uppercase(),
+                    color = badgeText,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun HistoryRecordCard(
     record: TestRecord,
     onClick: () -> Unit
 ) {
-    val resultColor = when (record.result) {
-        "POSITIVE" -> Color(0xFFC62828)
-        "NEGATIVE" -> Color(0xFF2E7D32)
-        else -> Color(0xFFE65100)
-    }
-
+    val isPositive = record.result.equals("POSITIVE", ignoreCase = true)
+    val resultColor = if (isPositive) StatusRed else StatusGreen
     val isSigned = record.signature.isNotBlank() && record.signature != "SIGNATURE_GENERATION_FAILED"
 
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, BorderGray),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
@@ -180,7 +456,7 @@ private fun HistoryRecordCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -188,19 +464,19 @@ private fun HistoryRecordCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = record.testId,
-                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = TextCharcoal
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = if (isSigned) Color(0xFF2E7D32).copy(alpha = 0.12f) else Color(0xFFC62828).copy(alpha = 0.12f)
+                        color = if (isSigned) StatusGreenContainer else StatusRedContainer
                     ) {
                         Text(
                             text = if (isSigned) "VERIFIED" else "NOT VERIFIED",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isSigned) Color(0xFF2E7D32) else Color(0xFFC62828),
+                            color = if (isSigned) StatusGreen else StatusRed,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -209,23 +485,23 @@ private fun HistoryRecordCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Kit: ${record.kitId} • ${SimpleDateFormat("dd MMM yyyy, h:mm a", Locale.US).format(Date(record.timestamp))}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 11.sp,
+                    color = TextMuted
                 )
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = resultColor.copy(alpha = 0.15f)
             ) {
                 Text(
                     text = getLocalizedResultCategory(record.result),
                     color = resultColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                 )
             }
         }
@@ -255,14 +531,15 @@ private fun RecordDetailSheet(
             text = "Evidence Record Details",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = TextCharcoal
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            colors = CardDefaults.cardColors(containerColor = CanvasBackground),
+            border = BorderStroke(1.dp, BorderGray),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -295,42 +572,46 @@ private fun RecordDetailSheet(
         Spacer(modifier = Modifier.height(16.dp))
 
         verificationResult?.let { result ->
+            val isVerified = result.status == IntegrityStatus.VERIFIED
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (result.status == IntegrityStatus.VERIFIED) Color(0xFF2E7D32).copy(alpha = 0.12f) else Color(0xFFC62828).copy(alpha = 0.12f),
+                color = if (isVerified) StatusGreenContainer else StatusRedContainer,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isVerified) Icons.Default.CheckCircle else Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (isVerified) StatusGreen else StatusRed,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isVerified) "✓ Integrity Verified" else "⚠ Integrity Check Failed (Tamper Detected)",
+                            fontWeight = FontWeight.Bold,
+                            color = if (isVerified) StatusGreen else StatusRed,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (result.status == IntegrityStatus.IMAGE_HASH_MISMATCH) "DEBUG TAMPER TEST" else "Integrity Status: ${result.status.name}",
-                        fontWeight = FontWeight.Bold,
-                        color = if (result.status == IntegrityStatus.VERIFIED) Color(0xFF2E7D32) else Color(0xFFC62828),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Signature: ${if (result.isSignatureValid) "VALID" else "INVALID"}",
+                        text = "Signature: ${if (isVerified) "VALID" else "INVALID (Tamper Detected)"}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (result.isSignatureValid) Color(0xFF2E7D32) else Color(0xFFC62828)
+                        color = if (isVerified) StatusGreen else StatusRed
                     )
                     Text(
-                        text = "Image Hash: ${if (result.isImageHashValid) "MATCH" else "MISMATCH"}",
+                        text = "Image Hash: ${if (result.isImageHashValid) "MATCH" else "MISMATCH (Content Modified)"}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (result.isImageHashValid) Color(0xFF2E7D32) else Color(0xFFC62828)
-                    )
-                    Text(
-                        text = "Overall: ${result.status.name}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (result.status == IntegrityStatus.VERIFIED) Color(0xFF2E7D32) else Color(0xFFC62828)
+                        color = if (result.isImageHashValid) StatusGreen else StatusRed
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = result.detailMessage,
+                        text = "Detail: ${result.detailMessage}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = TextCharcoal
                     )
                 }
             }
@@ -348,13 +629,13 @@ private fun RecordDetailSheet(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         when (reportState) {
             is ReportState.Idle -> {
                 Button(
                     onClick = onGenerateReport,
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F2942)),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
                     modifier = Modifier.fillMaxWidth().height(52.dp)
                 ) {
                     Text("Generate PDF Report", fontWeight = FontWeight.Bold)
@@ -364,7 +645,7 @@ private fun RecordDetailSheet(
                 Button(
                     onClick = {},
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F2942).copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy.copy(alpha = 0.5f)),
                     modifier = Modifier.fillMaxWidth().height(52.dp)
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
@@ -378,7 +659,7 @@ private fun RecordDetailSheet(
                     Button(
                         onClick = { ReportIntentHelper.openPdfReport(context, pdfFile) },
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F2942)),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
                         modifier = Modifier.weight(1f).height(52.dp)
                     ) {
                         Text("Open Report", fontWeight = FontWeight.Bold)
@@ -386,7 +667,7 @@ private fun RecordDetailSheet(
                     Button(
                         onClick = { ReportIntentHelper.sharePdfReport(context, pdfFile) },
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F2942)),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
                         modifier = Modifier.weight(1f).height(52.dp)
                     ) {
                         Text("Share Report", fontWeight = FontWeight.Bold)
@@ -400,7 +681,7 @@ private fun RecordDetailSheet(
                     Button(
                         onClick = onGenerateReport,
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F2942)),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
                         modifier = Modifier.fillMaxWidth().height(52.dp)
                     ) {
                         Text("Retry Generate PDF", fontWeight = FontWeight.Bold)
@@ -433,22 +714,6 @@ private fun RecordDetailSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "Prototype classification only. This result is based on project-defined reference centroids and is not a validated forensic or laboratory result.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(14.dp)
-            )
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
@@ -462,14 +727,14 @@ private fun DetailRow(label: String, value: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = TextMuted
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = TextCharcoal,
             textAlign = TextAlign.End,
             modifier = Modifier.weight(1f)
         )

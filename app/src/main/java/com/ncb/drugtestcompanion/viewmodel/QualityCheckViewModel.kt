@@ -35,10 +35,11 @@ import javax.inject.Inject
  *
  * Executes:
  * 1. Image quality checking & reference-card detection
- * 2. Test-device detection & 386x133 ML ROI extraction
- * 3. TensorFlow Lite MobileNetV2 classification (Single Source of Truth!)
- * 4. Evidence record persistence
- * 5. PDF report generation
+ * 2. Reference card 3x3 RGB color calibration transform
+ * 3. Test-device detection & 386x133 ML ROI extraction
+ * 4. Apply 3x3 RGB calibration matrix to ML ROI
+ * 5. TFLite classification on Calibrated ML ROI (Single Source of Truth!)
+ * 6. Evidence record persistence & PDF report generation
  */
 @HiltViewModel
 class QualityCheckViewModel @Inject constructor(
@@ -77,44 +78,50 @@ class QualityCheckViewModel @Inject constructor(
             _uiState.value = when (result) {
                 is QualityResult.ImageValid -> {
                     val kitProfile = testKitProfileRepository.getKitProfileByKitId(profile?.variantId ?: "KIT_A")
-                    val roiResult = result.roiExtractionResult
-                    val mlRoiBitmap = result.mlRoiBitmap ?: roiResult?.roiBitmap
+                    val rawMlRoiBitmap = result.rawMlRoiBitmap
+                    val calibratedMlRoiBitmap = result.calibratedMlRoiBitmap ?: rawMlRoiBitmap
 
-                    // -----------------------------------------------------
-                    // TFLITE CLASSIFICATION (FINAL SOURCE OF TRUTH)
-                    // -----------------------------------------------------
-                    val tfliteResult: ClassificationResult? = if (mlRoiBitmap != null) {
-                        logTfliteDebug("inputBitmapWidth=${mlRoiBitmap.width}")
-                        logTfliteDebug("inputBitmapHeight=${mlRoiBitmap.height}")
-                        logTfliteDebug("inputBitmapSource=reaction_result_window_roi")
+                    val finalClassification: ClassificationResult? = if (calibratedMlRoiBitmap != null) {
+                        val sourceName = File(imagePath).nameWithoutExtension
 
-                        val savedPath = saveDebugMlInputImage(mlRoiBitmap, imagePath)
-                        logTfliteDebug("savedInputPath=$savedPath")
-                        logTfliteDebug("inputSize=${mlRoiBitmap.width}x${mlRoiBitmap.height}")
+                        // Save both Debug Images (Requirements 12)
+                        if (rawMlRoiBitmap != null) {
+                            saveDebugMlInputImage(rawMlRoiBitmap, "debug_raw_roi", sourceName)
+                        }
+                        saveDebugMlInputImage(calibratedMlRoiBitmap, "debug_calibrated_roi", sourceName)
 
-                        val classification = drugTestClassifier.classify(mlRoiBitmap)
+                        // Evaluate RAW ROI for logging comparison (Requirement 14)
+                        if (rawMlRoiBitmap != null) {
+                            val rawClassification = drugTestClassifier.classify(rawMlRoiBitmap)
+                            val negP = rawClassification.componentScores["negative_prob"] ?: 0.0
+                            val posP = rawClassification.componentScores["positive_prob"] ?: 0.0
+                            val incP = rawClassification.componentScores["inconclusive_prob"] ?: 0.0
+                            logClassificationValidation("RAW: NEGATIVE=$negP, POSITIVE=$posP, INCONCLUSIVE=$incP")
+                        }
 
+                        // Evaluate CALIBRATED ROI as FINAL SOURCE OF TRUTH (Requirement 13 & 15)
+                        val calibClassification = drugTestClassifier.classify(calibratedMlRoiBitmap)
+                        val cNegP = calibClassification.componentScores["negative_prob"] ?: 0.0
+                        val cPosP = calibClassification.componentScores["positive_prob"] ?: 0.0
+                        val cIncP = calibClassification.componentScores["inconclusive_prob"] ?: 0.0
+
+                        logClassificationValidation("CALIBRATED: NEGATIVE=$cNegP, POSITIVE=$cPosP, INCONCLUSIVE=$cIncP")
                         logClassificationValidation("ML_PIPELINE: TFLite classification completed = YES")
-                        logClassificationValidation("ML_PIPELINE: FINAL RESULT = ${classification.result.name}")
-                        logClassificationValidation("ML_PIPELINE: FINAL CONFIDENCE = ${classification.confidence}")
+                        logClassificationValidation("ML_PIPELINE: FINAL RESULT = ${calibClassification.result.name}")
+                        logClassificationValidation("ML_PIPELINE: FINAL CONFIDENCE = ${calibClassification.confidence}")
 
-                        classification
-                    } else if (roiResult?.featureVector != null) {
-                        // Fallback classical classifier if ML ROI bitmap is completely missing
-                        val fallback = classifyResultUseCase(roiResult.featureVector, kitProfile.centroids)
-                        logClassificationValidation("ML_PIPELINE: Fallback classical result used = ${fallback.result.name}")
-                        fallback
+                        calibClassification
                     } else {
                         null
                     }
 
                     var savedRecord: TestRecord? = null
-                    if (tfliteResult != null) {
-                        savedRecord = saveTestRecordUseCase(imagePath, kitProfile, tfliteResult)
+                    if (finalClassification != null) {
+                        savedRecord = saveTestRecordUseCase(imagePath, kitProfile, finalClassification)
                     }
 
                     QualityCheckUiState.Valid(
-                        classificationResult = tfliteResult,
+                        classificationResult = finalClassification,
                         savedRecord = savedRecord
                     )
                 }
@@ -126,14 +133,13 @@ class QualityCheckViewModel @Inject constructor(
         }
     }
 
-    private fun saveDebugMlInputImage(bitmap: Bitmap, sourcePath: String): String {
+    private fun saveDebugMlInputImage(bitmap: Bitmap, prefix: String, sourceName: String): String {
         return try {
             val debugDir = File(context.filesDir, "debug_ml_inputs").apply {
                 if (!exists()) mkdirs()
             }
-            val originalName = File(sourcePath).nameWithoutExtension
             val timestamp = System.currentTimeMillis()
-            val outputFile = File(debugDir, "ml_input_${timestamp}_${originalName}.png")
+            val outputFile = File(debugDir, "${prefix}_${timestamp}_${sourceName}.png")
 
             FileOutputStream(outputFile).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)

@@ -1,5 +1,6 @@
 package com.ncb.drugtestcompanion.cv
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -8,6 +9,7 @@ import android.util.Log
 import com.ncb.drugtestcompanion.domain.model.QualityFailureReason
 import com.ncb.drugtestcompanion.domain.model.ReferenceCardProfile
 import com.ncb.drugtestcompanion.domain.model.RoiSpec
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,7 +18,9 @@ sealed class QualityResult {
 
     data class ImageValid(
         val roiExtractionResult: RoiExtractionResult.Success? = null,
-        val mlRoiBitmap: Bitmap? = null
+        val rawMlRoiBitmap: Bitmap? = null,
+        val calibratedMlRoiBitmap: Bitmap? = null,
+        val colorCalibrationResult: ColorCalibrationResult? = null
     ) : QualityResult()
 
     data class ImageInvalid(
@@ -32,11 +36,15 @@ sealed class QualityResult {
  * 2. Blur check
  * 3. Exposure check
  * 4. Reference card detection (Mandatory!)
- * 5. Test device detection & ML ROI extraction (386x133)
+ * 5. Reference card 3x3 RGB color calibration transform calculation
+ * 6. Test device detection & ML ROI extraction (386x133)
+ * 7. Apply 3x3 RGB calibration matrix to ML ROI
  */
 @Singleton
 class QualityGate @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val cardDetector: CardDetector,
+    private val colorCalibrator: ColorCalibrator,
     private val roiExtractor: RoiExtractor? = null
 ) {
 
@@ -75,9 +83,11 @@ class QualityGate @Inject constructor(
 
         logDiagnostic("3. Bitmap dimensions after EXIF rotation: ${bitmap.width}x${bitmap.height}")
 
+        val sourceName = file.nameWithoutExtension
         return analyzeBitmap(
             bitmap = bitmap,
-            profile = profile
+            profile = profile,
+            sourceName = sourceName
         )
     }
 
@@ -121,7 +131,8 @@ class QualityGate @Inject constructor(
 
     fun analyzeBitmap(
         bitmap: Bitmap,
-        profile: ReferenceCardProfile? = null
+        profile: ReferenceCardProfile? = null,
+        sourceName: String = "capture"
     ): QualityResult {
 
         val width = bitmap.width
@@ -195,18 +206,42 @@ class QualityGate @Inject constructor(
                 logMlPipeline("ML_PIPELINE: Reference card detected = YES")
 
                 // ====================================================
-                // 5. TEST DEVICE DETECTION & 386x133 ML ROI
+                // 5. REFERENCE CARD COLOR CALIBRATION MATRIX
                 // ====================================================
-                var mlRoiBitmap: Bitmap? = null
+                val calibrationResult = colorCalibrator.computeCalibrationTransform(bitmap, detection.corners)
+
+                // ====================================================
+                // 6. TEST DEVICE DETECTION & 386x133 ML ROI
+                // ====================================================
+                var rawMlRoiBitmap: Bitmap? = null
+                var calibratedMlRoiBitmap: Bitmap? = null
+
                 try {
-                    val testDeviceResult = testDeviceDetector.detectAndWarp(bitmap)
+                    val testDeviceResult = testDeviceDetector.detectAndWarp(
+                        bitmap = bitmap,
+                        cardCorners = detection.corners,
+                        context = context,
+                        sourceImageName = sourceName
+                    )
                     if (testDeviceResult != null) {
-                        mlRoiBitmap = testDeviceResult.mlRoiBitmap
+                        rawMlRoiBitmap = testDeviceResult.mlRoiBitmap
                         logMlPipeline("ML_PIPELINE: Test device detected = YES")
                         logTfliteDebug("testDeviceDetection=SUCCESS")
                         logTfliteDebug("roiExtraction=SUCCESS")
                         logTfliteDebug("deviceBitmap=${testDeviceResult.deviceBitmap.width}x${testDeviceResult.deviceBitmap.height}")
-                        logTfliteDebug("resultROI=${mlRoiBitmap.width}x${mlRoiBitmap.height}")
+                        logTfliteDebug("resultROI=${rawMlRoiBitmap.width}x${rawMlRoiBitmap.height}")
+
+                        // Apply 3x3 least-squares RGB color calibration matrix if available
+                        if (calibrationResult.isCalibrated && calibrationResult.transformMatrix != null) {
+                            calibratedMlRoiBitmap = colorCalibrator.applyCalibrationToBitmap(
+                                rawMlRoiBitmap,
+                                calibrationResult.transformMatrix
+                            )
+                            logTfliteDebug("colorCalibrationApplied=YES")
+                        } else {
+                            calibratedMlRoiBitmap = rawMlRoiBitmap
+                            logTfliteDebug("colorCalibrationApplied=NO")
+                        }
                     } else {
                         logMlPipeline("ML_PIPELINE: Test device detected = NO")
                         logTfliteDebug("testDeviceDetection=FAILED")
@@ -226,7 +261,9 @@ class QualityGate @Inject constructor(
                 logQuality("ALL QUALITY CHECKS PASSED SUCCESSFULLY")
                 return QualityResult.ImageValid(
                     roiExtractionResult = extractedRoiSuccess,
-                    mlRoiBitmap = mlRoiBitmap
+                    rawMlRoiBitmap = rawMlRoiBitmap,
+                    calibratedMlRoiBitmap = calibratedMlRoiBitmap,
+                    colorCalibrationResult = calibrationResult
                 )
             }
         }

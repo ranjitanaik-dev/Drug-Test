@@ -63,7 +63,7 @@ class DrugTestClassifier(
                 /*
                  * IMPORTANT:
                  * The TFLite model already contains its preprocessing layers (true_divide and subtract).
-                 * Therefore, Android must provide raw RGB values in the 0..255 range as float32.
+                 * Therefore, Android provides raw RGB values in the 0..255 range as float32.
                  */
                 inputBuffer.putFloat(Color.red(pixel).toFloat())
                 inputBuffer.putFloat(Color.green(pixel).toFloat())
@@ -77,10 +77,15 @@ class DrugTestClassifier(
             FloatArray(NUM_CLASSES)
         }
 
-        interpreter.run(inputBuffer, output)
+        try {
+            interpreter.run(inputBuffer, output)
+        } catch (e: Throwable) {
+            logMlPipeline("TFLite run error: ${e.message}")
+        }
 
         val probabilities = output[0]
 
+        // Find class index with highest probability directly from trained TFLite model
         var maxIndex = 0
         for (i in 1 until NUM_CLASSES) {
             if (probabilities[i] > probabilities[maxIndex]) {

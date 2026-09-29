@@ -1,21 +1,31 @@
 package com.ncb.drugtestcompanion.ui.home
 
 import android.widget.Toast
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,11 +33,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,31 +52,58 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
 import com.ncb.drugtestcompanion.BuildConfig
 import com.ncb.drugtestcompanion.R
+import com.ncb.drugtestcompanion.audio.VoiceAnnouncementManager
 import com.ncb.drugtestcompanion.localization.AppLanguage
+import com.ncb.drugtestcompanion.ui.common.GradientButton
 import com.ncb.drugtestcompanion.ui.common.LanguageSelectorButton
 import com.ncb.drugtestcompanion.ui.common.LanguageSelectorDialog
 import com.ncb.drugtestcompanion.ui.common.ShieldIcon
+import com.ncb.drugtestcompanion.ui.theme.BorderGray
+import com.ncb.drugtestcompanion.ui.theme.CanvasBackground
+import com.ncb.drugtestcompanion.ui.theme.CardTintBlue
+import com.ncb.drugtestcompanion.ui.theme.DeepNavy
+import com.ncb.drugtestcompanion.ui.theme.LightBlueCardGradient
+import com.ncb.drugtestcompanion.ui.theme.MidnightGradient
+import com.ncb.drugtestcompanion.ui.theme.PrimaryNavy
+import com.ncb.drugtestcompanion.ui.theme.StatusGreen
+import com.ncb.drugtestcompanion.ui.theme.StatusGreenContainer
+import com.ncb.drugtestcompanion.ui.theme.StatusRed
+import com.ncb.drugtestcompanion.ui.theme.StatusRedContainer
+import com.ncb.drugtestcompanion.ui.theme.TealAccent
+import com.ncb.drugtestcompanion.ui.theme.TealContainer
+import com.ncb.drugtestcompanion.ui.theme.TextCharcoal
+import com.ncb.drugtestcompanion.ui.theme.TextMuted
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -83,11 +118,21 @@ fun HomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    // Voice Announcement Greeting ONLY on Initial App Open ("Welcome")
+    val voiceManager = remember(context) { VoiceAnnouncementManager(context.applicationContext) }
+    var hasGreetedInitialOpen by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        if (!hasGreetedInitialOpen) {
+            voiceManager.speak("Welcome")
+            hasGreetedInitialOpen = true
+        }
+    }
+
     // Section scroll position targets
     var aboutY by remember { mutableStateOf(0) }
     var howItWorksY by remember { mutableStateOf(0) }
     var featuresY by remember { mutableStateOf(0) }
-    var contactY by remember { mutableStateOf(0) }
 
     var showLanguageDialog by remember { mutableStateOf(false) }
 
@@ -101,80 +146,91 @@ fun HomeScreen(
 
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = Color(0xFFF8FAFC)
+        color = CanvasBackground
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top Navigation Bar
+            // 1. Top Navigation Bar (Contains Entry 1: Top-Right Officer Login)
             HomeTopBar(
                 currentLanguage = currentLanguage,
                 onOpenLanguageDialog = { showLanguageDialog = true },
-                onNavigateToLogin = onNavigateToLogin,
-                onScrollToSection = { target ->
-                    coroutineScope.launch {
-                        when (target) {
-                            "about" -> scrollState.animateScrollTo(aboutY)
-                            "how_it_works" -> scrollState.animateScrollTo(howItWorksY)
-                            "features" -> scrollState.animateScrollTo(featuresY)
-                            "contact" -> scrollState.animateScrollTo(contactY)
-                        }
-                    }
-                }
+                onNavigateToLogin = onNavigateToLogin
             )
 
-            // Scrollable Content
+            // 2. Main Portal Content
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(scrollState)
             ) {
-                HeroSection(
-                    onNavigateToLogin = onNavigateToLogin,
-                    onLearnMore = {
-                        coroutineScope.launch {
-                            scrollState.animateScrollTo(aboutY)
-                        }
-                    }
+                // Hero Section (Contains Entry 2: Below "Digital Field Drug Testing" Section)
+                HeroSectionImage5(
+                    onNavigateToLogin = onNavigateToLogin
                 )
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 3. AUTO-SLIDING FEATURE CAROUSEL (5 Project Slides)
+                AutoSlidingFeatureCarousel(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 4. ML DEMO OPTION BUTTON (Kept for Demonstration)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onNavigateToMlTest,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, PrimaryNavy),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        ShieldIcon(size = 18.dp, color = PrimaryNavy)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.btn_ml_test),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryNavy
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 5. Supported Field Drug Testing Equipment & Kits Showcase Section
+                FieldKitsShowcaseSection()
+
+                // 6. Workflow Steps Section
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { howItWorksY = it.positionInRoot().y.toInt() }
+                ) {
+                    WorkflowStepsSection()
+                }
+
+                // 7. Evidence Integrity Section
+                Box(
+                    modifier = Modifier.onGloballyPositioned { featuresY = it.positionInRoot().y.toInt() }
+                ) {
+                    EvidenceIntegritySection()
+                }
+
+                // 8. Niriksh Professional Footer Section (No "More" item)
                 Box(modifier = Modifier.onGloballyPositioned { aboutY = it.positionInRoot().y.toInt() }) {
-                    AboutSection()
+                    PortalFooterSection()
                 }
-
-                Box(modifier = Modifier.onGloballyPositioned { howItWorksY = it.positionInRoot().y.toInt() }) {
-                    HowItWorksSection()
-                }
-
-                Box(modifier = Modifier.onGloballyPositioned { featuresY = it.positionInRoot().y.toInt() }) {
-                    KeyFeaturesSection()
-                }
-
-                ImportantNoticeSection()
-
-                Box(modifier = Modifier.onGloballyPositioned { contactY = it.positionInRoot().y.toInt() }) {
-                    ContactSupportSection(
-                        onSendMessage = {
-                            Toast.makeText(context, "Message form is available in the prototype.", Toast.LENGTH_SHORT).show()
-                        }
-                    )
-                }
-
-                FooterSection(
-                    onNavigateToLogin = onNavigateToLogin,
-                    onNavigateToMlTest = onNavigateToMlTest,
-                    onScrollToSection = { target ->
-                        coroutineScope.launch {
-                            when (target) {
-                                "about" -> scrollState.animateScrollTo(aboutY)
-                                "how_it_works" -> scrollState.animateScrollTo(howItWorksY)
-                                "features" -> scrollState.animateScrollTo(featuresY)
-                                "contact" -> scrollState.animateScrollTo(contactY)
-                            }
-                        }
-                    }
-                )
             }
         }
     }
@@ -184,14 +240,12 @@ fun HomeScreen(
 private fun HomeTopBar(
     currentLanguage: AppLanguage,
     onOpenLanguageDialog: () -> Unit,
-    onNavigateToLogin: () -> Unit,
-    onScrollToSection: (String) -> Unit
+    onNavigateToLogin: () -> Unit
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
-
-    Surface(
-        color = Color(0xFF0F2942),
-        modifier = Modifier.fillMaxWidth()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MidnightGradient)
     ) {
         Row(
             modifier = Modifier
@@ -200,27 +254,27 @@ private fun HomeTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Brand Logo & Subtitle
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ShieldIcon(size = 32.dp, color = Color.White)
-                Spacer(modifier = Modifier.width(10.dp))
+                ShieldIcon(size = 28.dp, color = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
                         text = stringResource(R.string.app_name),
                         color = Color.White,
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = stringResource(R.string.app_subtitle),
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 10.sp
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
                     )
                 }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Language Selector Button
                 LanguageSelectorButton(
                     currentLanguage = currentLanguage,
                     onOpenDialog = onOpenLanguageDialog
@@ -228,295 +282,658 @@ private fun HomeTopBar(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Officer Login Header Button
-                OutlinedButton(
+                // ENTRY 1: Top-Right Officer Login
+                GradientButton(
+                    text = stringResource(R.string.nav_login),
                     onClick = onNavigateToLogin,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color.White),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                    modifier = Modifier.height(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = stringResource(R.string.nav_login),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = stringResource(R.string.nav_login), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Menu Icon for Sections
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
+                    height = 36.dp,
+                    fontSize = 12,
+                    leadingIcon = {
                         Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Navigation Menu",
-                            tint = Color.White
+                            imageVector = Icons.Default.Person,
+                            contentDescription = stringResource(R.string.nav_login),
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
-
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.nav_about)) },
-                            onClick = {
-                                onScrollToSection("about")
-                                menuExpanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.nav_how_it_works)) },
-                            onClick = {
-                                onScrollToSection("how_it_works")
-                                menuExpanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.nav_features)) },
-                            onClick = {
-                                onScrollToSection("features")
-                                menuExpanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.nav_contact)) },
-                            onClick = {
-                                onScrollToSection("contact")
-                                menuExpanded = false
-                            }
-                        )
-                    }
-                }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun HeroSection(
-    onNavigateToLogin: () -> Unit,
-    onLearnMore: () -> Unit
+private fun HeroSectionImage5(
+    onNavigateToLogin: () -> Unit
 ) {
-    Surface(
-        color = Color(0xFF0F2942).copy(alpha = 0.04f),
-        modifier = Modifier.fillMaxWidth()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MidnightGradient)
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = "DrugTest Companion",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F2942)
-            )
-
-            Text(
-                text = "Digital Companion for Field Drug Testing",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFF1976D2),
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "A mobile-assisted solution for standardized field-test documentation, presumptive field-test result recording, and tamper-evident digital evidence management.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = Color.White.copy(alpha = 0.12f)
             ) {
-                Button(
-                    onClick = onNavigateToLogin,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F2942)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(44.dp)
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Officer Login",
-                        modifier = Modifier.size(18.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF34D399))
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Officer Login", fontWeight = FontWeight.Bold)
-                }
-
-                OutlinedButton(
-                    onClick = onLearnMore,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color(0xFF0F2942)),
-                    modifier = Modifier.height(44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Learn More",
-                        modifier = Modifier.size(18.dp),
-                        tint = Color(0xFF0F2942)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.home_hero_pill),
+                        color = Color(0xFF34D399),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.5.sp
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Learn More", color = Color(0xFF0F2942), fontWeight = FontWeight.Bold)
                 }
             }
 
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = stringResource(R.string.home_hero_title),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                lineHeight = 32.sp
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = stringResource(R.string.home_hero_subtitle),
+                fontSize = 12.sp,
+                color = Color.White.copy(alpha = 0.85f),
+                lineHeight = 17.sp
+            )
+
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Professional Graphic Card
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            // ENTRY 2: Below "Digital Field Drug Testing" Section Officer Login
+            GradientButton(
+                text = "→ " + stringResource(R.string.home_btn_login),
+                onClick = onNavigateToLogin,
+                height = 48.dp,
+                fontSize = 14,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    HeroIllustration(modifier = Modifier.fillMaxWidth().height(160.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Authorized Field Testing & Reference Calibration Environment",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HeroDeviceMockupGraphic()
+        }
+    }
+}
+
+/**
+ * Auto-Sliding Feature Carousel (5 Slides)
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AutoSlidingFeatureCarousel(
+    modifier: Modifier = Modifier
+) {
+    val pageCount = 5
+    val pagerState = rememberPagerState(pageCount = { pageCount })
+
+    // Auto-slide every 3.5 seconds
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3500)
+            val nextPage = (pagerState.currentPage + 1) % pageCount
+            pagerState.animateScrollToPage(nextPage)
+        }
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+        ) { page ->
+            CarouselSlideCard(page = page)
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Pagination Indicators: ● ○ ○ ○ ○
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(pageCount) { index ->
+                val isSelected = pagerState.currentPage == index
+                Box(
+                    modifier = Modifier
+                        .size(if (isSelected) 8.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) PrimaryNavy else BorderGray)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun HeroIllustration(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        // Draw Field Desk Surface
-        drawRoundRect(
-            color = Color(0xFF1E293B),
-            topLeft = Offset(w * 0.05f, h * 0.1f),
-            size = Size(w * 0.9f, h * 0.8f),
-            cornerRadius = CornerRadius(12f, 12f)
-        )
-
-        // Draw Reference Card Representation
-        drawRoundRect(
-            color = Color.White,
-            topLeft = Offset(w * 0.12f, h * 0.25f),
-            size = Size(w * 0.35f, h * 0.5f),
-            cornerRadius = CornerRadius(8f, 8f)
-        )
-
-        // ArUco Markers Representation
-        val mSize = w * 0.06f
-        drawRect(Color.Black, topLeft = Offset(w * 0.14f, h * 0.28f), size = Size(mSize, mSize))
-        drawRect(Color.Black, topLeft = Offset(w * 0.39f, h * 0.28f), size = Size(mSize, mSize))
-        drawRect(Color.Black, topLeft = Offset(w * 0.14f, h * 0.65f), size = Size(mSize, mSize))
-        drawRect(Color.Black, topLeft = Offset(w * 0.39f, h * 0.65f), size = Size(mSize, mSize))
-
-        // Smartphone Frame Representation
-        drawRoundRect(
-            color = Color(0xFF0F172A),
-            topLeft = Offset(w * 0.55f, h * 0.2f),
-            size = Size(w * 0.32f, h * 0.6f),
-            cornerRadius = CornerRadius(12f, 12f)
-        )
-        // Screen View
-        drawRoundRect(
-            color = Color(0xFF0284C7),
-            topLeft = Offset(w * 0.57f, h * 0.25f),
-            size = Size(w * 0.28f, h * 0.5f),
-            cornerRadius = CornerRadius(6f, 6f)
-        )
+private fun CarouselSlideCard(page: Int) {
+    val (titleRes, descRes, imageRes) = when (page) {
+        0 -> Triple(R.string.carousel_slide_1_title, R.string.carousel_slide_1_desc, R.drawable.kit_home_hero)
+        1 -> Triple(R.string.carousel_slide_2_title, R.string.carousel_slide_2_desc, R.drawable.kit_rapidfor_k2)
+        2 -> Triple(R.string.carousel_slide_3_title, R.string.carousel_slide_3_desc, R.drawable.kit_mobiledetect)
+        3 -> Triple(R.string.carousel_slide_4_title, R.string.carousel_slide_4_desc, R.drawable.kit_proscreen)
+        else -> Triple(R.string.carousel_slide_5_title, R.string.carousel_slide_5_desc, R.drawable.kit_tox_analyser)
     }
-}
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun AboutSection() {
-    Column(
-        modifier = Modifier.padding(20.dp)
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, BorderGray),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 4.dp)
     ) {
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LightBlueCardGradient)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ShieldIcon(size = 28.dp, color = Color(0xFF0F2942))
-                    Spacer(modifier = Modifier.width(10.dp))
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = TealContainer
+                ) {
                     Text(
-                        text = "About the Solution",
-                        style = MaterialTheme.typography.titleLarge,
+                        text = "FEATURE 0${page + 1}",
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F2942)
+                        color = PrimaryNavy,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "DrugTest Companion is a prototype mobile solution designed to assist authorized field personnel in documenting colorimetric field-test observations and maintaining a structured digital evidence record.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = Color(0xFFE2E8F0))
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "The application supports:",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = stringResource(titleRes),
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F2942)
+                    color = TextCharcoal,
+                    lineHeight = 20.sp
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                val capabilities = listOf(
-                    "Standardized image capture",
-                    "Reference-card based color calibration",
-                    "Presumptive result classification",
-                    "Timestamped digital records",
-                    "Operator identification",
-                    "Location information",
-                    "Cryptographic image hashing",
-                    "Digitally signed evidence",
-                    "Integrity verification",
-                    "Searchable test history"
+                Text(
+                    text = stringResource(descRes),
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                    lineHeight = 15.sp
                 )
+            }
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Box(
+                modifier = Modifier
+                    .width(110.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = imageRes),
+                    contentDescription = stringResource(titleRes),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(6.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Field Drug Testing Equipment & Kits Showcase Section
+ */
+@Composable
+private fun FieldKitsShowcaseSection() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = Color(0xFF00C9A7).copy(alpha = 0.15f),
+            border = BorderStroke(1.dp, Color(0xFF00C9A7))
+        ) {
+            Text(
+                text = "FIELD KITS & DIGITAL EVIDENCE TECHNOLOGY",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF0D9488),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                letterSpacing = 0.5.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Supported Field Testing Equipment",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextCharcoal
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "Automated camera-assisted colorimetry for rapid test kit boxes, pouches, abuse cups & forensic suites",
+            fontSize = 12.sp,
+            color = TextMuted,
+            lineHeight = 16.sp
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            EquipmentKitCard(
+                title = "RapidFor™ K2 Synthetic Kit",
+                subtitle = "Synthetic Cannabis Rapid Box",
+                category = "Reagent Kit Box",
+                colorAccent = Color(0xFF059669),
+                imageType = KitImageType.K2_BOX,
+                modifier = Modifier.weight(1f)
+            )
+
+            EquipmentKitCard(
+                title = "MobileDetect™ MDT Pouch",
+                subtitle = "Automated Dual-Well Pouch",
+                category = "Color Reaction Pouch",
+                colorAccent = Color(0xFF0284C7),
+                imageType = KitImageType.MDT_POUCH,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            EquipmentKitCard(
+                title = "ProScreen™ Multi-Panel Cup",
+                subtitle = "6-Panel Abuse Test Cup",
+                category = "Multi-Panel Fluid Cup",
+                colorAccent = Color(0xFF7C3AED),
+                imageType = KitImageType.PROSCREEN_CUP,
+                modifier = Modifier.weight(1f)
+            )
+
+            EquipmentKitCard(
+                title = "Police Field Suite",
+                subtitle = "TOX-Analyser & Evidence Case",
+                category = "Law Enforcement Suite",
+                colorAccent = Color(0xFF0F2942),
+                imageType = KitImageType.EVIDENCE_SUITE,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+private enum class KitImageType { K2_BOX, MDT_POUCH, PROSCREEN_CUP, EVIDENCE_SUITE }
+
+@Composable
+private fun EquipmentKitCard(
+    title: String,
+    subtitle: String,
+    category: String,
+    colorAccent: Color,
+    imageType: KitImageType,
+    modifier: Modifier = Modifier
+) {
+    val drawableResId = when (imageType) {
+        KitImageType.K2_BOX -> R.drawable.kit_rapidfor_k2
+        KitImageType.MDT_POUCH -> R.drawable.kit_mobiledetect
+        KitImageType.PROSCREEN_CUP -> R.drawable.kit_proscreen
+        KitImageType.EVIDENCE_SUITE -> R.drawable.kit_tox_analyser
+    }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, colorAccent.copy(alpha = 0.3f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(LightBlueCardGradient)
+                .padding(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = drawableResId),
+                    contentDescription = title,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().padding(4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = colorAccent.copy(alpha = 0.12f)
+            ) {
+                Text(
+                    text = category.uppercase(),
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colorAccent,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextCharcoal
+            )
+
+            Text(
+                text = subtitle,
+                fontSize = 10.sp,
+                color = TextMuted,
+                lineHeight = 13.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeroDeviceMockupGraphic() {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0D253A)),
+        border = BorderStroke(1.5.dp, Color(0xFF2563EB).copy(alpha = 0.4f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(290.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(185.dp)
+                        .height(265.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFF071828))
+                        .padding(6.dp)
                 ) {
-                    capabilities.forEach { item ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = Color(0xFF2E7D32),
-                                modifier = Modifier.size(16.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFF030D18))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF0A1F33))
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ShieldIcon(size = 12.dp, color = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("DTC", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = StatusGreenContainer
+                            ) {
+                                Text("SECURE", color = StatusGreen, fontSize = 7.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.kit_home_hero),
+                                contentDescription = "Field Mobile Equipment",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val w = size.width
+                                val h = size.height
+                                val cornerLen = 16f
+                                val strokeWidth = 3f
+                                val bracketColor = Color(0xFF00E5FF)
+
+                                drawPath(Path().apply {
+                                    moveTo(0f, cornerLen)
+                                    lineTo(0f, 0f)
+                                    lineTo(cornerLen, 0f)
+                                }, color = bracketColor, style = Stroke(width = strokeWidth))
+
+                                drawPath(Path().apply {
+                                    moveTo(w - cornerLen, 0f)
+                                    lineTo(w, 0f)
+                                    lineTo(w, cornerLen)
+                                }, color = bracketColor, style = Stroke(width = strokeWidth))
+
+                                drawPath(Path().apply {
+                                    moveTo(0f, h - cornerLen)
+                                    lineTo(0f, h)
+                                    lineTo(cornerLen, h)
+                                }, color = bracketColor, style = Stroke(width = strokeWidth))
+
+                                drawPath(Path().apply {
+                                    moveTo(w - cornerLen, h)
+                                    lineTo(w, h)
+                                    lineTo(w, h - cornerLen)
+                                }, color = bracketColor, style = Stroke(width = strokeWidth))
+                            }
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = Color(0xFF00A6A6).copy(alpha = 0.25f)
+                                ) {
+                                    Text(
+                                        text = "• " + stringResource(R.string.home_phone_ref_detected),
+                                        color = Color(0xFF00E5FF),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 8.sp,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Card(
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.85f)),
+                                    modifier = Modifier
+                                        .width(130.dp)
+                                        .height(75.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        ReagentAmpouleGraphic(Color(0xFF0284C7), "MARQUIS")
+                                        ReagentAmpouleGraphic(Color(0xFF7C3AED), "MECKE")
+                                        ReagentAmpouleGraphic(Color(0xFFD97706), "FROEHDE")
+                                        ReagentAmpouleGraphic(Color(0xFFDC2626), "SIMON")
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Text(
+                                    text = stringResource(R.string.home_phone_instruction),
+                                    color = Color.White,
+                                    fontSize = 7.5.sp,
+                                    fontFamily = FontFamily.SansSerif,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(32.dp)
+                                .background(Color(0xFF0A1F33)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text("DTC Reference", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = TextCharcoal)
+                            Text("CAL-CARD-V2", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = TextMuted)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Box(modifier = Modifier.weight(1f).height(14.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF0284C7)))
+                                Box(modifier = Modifier.weight(1f).height(14.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF7C3AED)))
+                                Box(modifier = Modifier.weight(1f).height(14.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD97706)))
+                                Box(modifier = Modifier.weight(1f).height(14.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFDC2626)))
+                                Box(modifier = Modifier.weight(1f).height(14.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF059669)))
+                            }
+                        }
+                    }
+
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(StatusGreen)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.home_phone_record_created),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextCharcoal
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = item,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface
+                                text = "SHA-256: 4821...F29",
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = TextMuted
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = StatusGreenContainer
+                            ) {
+                                Text(
+                                    text = "SEALED & AUDITABLE",
+                                    fontSize = 7.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = StatusGreen,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -526,368 +943,268 @@ private fun AboutSection() {
 }
 
 @Composable
-private fun HowItWorksSection() {
-    Column(
-        modifier = Modifier.padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = null,
-                tint = Color(0xFF0F2942),
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "How It Works",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F2942)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
+private fun ReagentAmpouleGraphic(color: Color, name: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .width(22.dp)
+                .height(42.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.White)
+                .padding(2.dp),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            HowItWorksCard("01", "Start a Case", "Officer begins a new field-test case.")
-            HowItWorksCard("02", "Capture", "The completed test device and project calibration reference card are captured in one image.")
-            HowItWorksCard("03", "Analyze", "The application performs image-quality checking, reference-card processing, ROI analysis and presumptive result classification.")
-            HowItWorksCard("04", "Secure the Record", "The application creates a timestamped evidence record with image hash, operator information, location information and digital signature.")
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(26.dp)
+                    .clip(RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
+                    .background(color)
+            )
         }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(name, fontSize = 6.sp, fontWeight = FontWeight.Bold, color = TextCharcoal)
     }
 }
 
 @Composable
-private fun HowItWorksCard(
-    stepNumber: String,
-    title: String,
-    description: String
-) {
+private fun WorkflowStepsSection() {
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = PrimaryNavy),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
         ) {
             Surface(
-                shape = CircleShape,
-                color = Color(0xFF0F2942),
-                modifier = Modifier.size(36.dp)
+                shape = RoundedCornerShape(50),
+                color = Color.White.copy(alpha = 0.15f)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stepNumber,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F2942)
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = stringResource(R.string.home_wf_pill),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
-        }
-    }
-}
 
-@Composable
-private fun KeyFeaturesSection() {
-    Column(
-        modifier = Modifier.padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Star,
-                contentDescription = null,
-                tint = Color(0xFF0F2942),
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
             Text(
-                text = "Key Features",
-                style = MaterialTheme.typography.titleLarge,
+                text = stringResource(R.string.home_wf_title),
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F2942)
+                color = Color.White
             )
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            FeatureCard("1. Image Capture", "Structured camera capture for field-test documentation.")
-            FeatureCard("2. Reference Calibration", "Reference-card based color normalization.")
-            FeatureCard("3. Presumptive Classification", "Records POSITIVE, NEGATIVE or INCONCLUSIVE prototype results.")
-            FeatureCard("4. Digital Evidence", "Creates a structured evidence record with cryptographic image hashing.")
-            FeatureCard("5. Integrity Verification", "Allows stored evidence to be checked for modification.")
-            FeatureCard("6. Searchable History", "Provides access to previously recorded test cases.")
-        }
-    }
-}
-
-@Composable
-private fun FeatureCard(title: String, description: String) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F2942)
-            )
             Spacer(modifier = Modifier.height(4.dp))
+
             Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = stringResource(R.string.home_wf_subtitle),
+                fontSize = 12.sp,
+                color = Color.White.copy(alpha = 0.85f),
+                lineHeight = 16.sp
             )
-        }
-    }
-}
-
-@Composable
-private fun ImportantNoticeSection() {
-    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-            border = BorderStroke(1.dp, Color(0xFFBBDEFB)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = "Notice",
-                    tint = Color(0xFF1976D2),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Important Notice",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1976D2)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "This application is a prototype for presumptive field-test documentation. Results generated by the application are not a substitute for laboratory confirmation or other authorized confirmatory procedures.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF0D47A1)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ContactSupportSection(onSendMessage: () -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("") }
-
-    Column(modifier = Modifier.padding(20.dp)) {
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Phone,
-                        contentDescription = null,
-                        tint = Color(0xFF0F2942),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Contact & Support",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F2942)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "Project Support",
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F2942)
-                )
-                Text(
-                    text = "DrugTest Companion — Prototype Solution",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Contact details can be configured for the authorized deployment environment.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = message,
-                    onValueChange = { message = it },
-                    label = { Text("Message") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = onSendMessage,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F2942)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Send Message", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FooterSection(
-    onNavigateToLogin: () -> Unit,
-    onNavigateToMlTest: () -> Unit = {},
-    onScrollToSection: (String) -> Unit
-) {
-    Surface(
-        color = Color(0xFF0F2942),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ShieldIcon(size = 28.dp, color = Color.White)
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = "DrugTest Companion",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Digital Companion for Field Drug Testing",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 10.sp
-                    )
-                }
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TextButton(onClick = { onScrollToSection("about") }) {
-                    Text("About", color = Color.White, fontSize = 12.sp)
-                }
-                TextButton(onClick = { onScrollToSection("how_it_works") }) {
-                    Text("How It Works", color = Color.White, fontSize = 12.sp)
-                }
-                TextButton(onClick = { onScrollToSection("features") }) {
-                    Text("Features", color = Color.White, fontSize = 12.sp)
-                }
-                TextButton(onClick = { onScrollToSection("contact") }) {
-                    Text("Contact", color = Color.White, fontSize = 12.sp)
-                }
-                TextButton(onClick = onNavigateToLogin) {
-                    Text("Officer Login", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+            WorkflowCardItem(stringResource(R.string.wf_01_num), stringResource(R.string.wf_01_title), stringResource(R.string.wf_01_desc), stringResource(R.string.badge_validated))
+            Spacer(modifier = Modifier.height(10.dp))
+            WorkflowCardItem(stringResource(R.string.wf_02_num), stringResource(R.string.wf_02_title), stringResource(R.string.wf_02_desc), stringResource(R.string.badge_validated))
+            Spacer(modifier = Modifier.height(10.dp))
+            WorkflowCardItem(stringResource(R.string.wf_03_num), stringResource(R.string.wf_03_title), stringResource(R.string.wf_03_desc), stringResource(R.string.badge_auditable))
+            Spacer(modifier = Modifier.height(10.dp))
+            WorkflowCardItem(stringResource(R.string.wf_04_num), stringResource(R.string.wf_04_title), stringResource(R.string.wf_04_desc), stringResource(R.string.badge_auditable))
+            Spacer(modifier = Modifier.height(10.dp))
+            WorkflowCardItem(stringResource(R.string.wf_05_num), stringResource(R.string.wf_05_title), stringResource(R.string.wf_05_desc), stringResource(R.string.badge_auditable))
+            Spacer(modifier = Modifier.height(10.dp))
+            WorkflowCardItem(stringResource(R.string.wf_06_num), stringResource(R.string.wf_06_title), stringResource(R.string.wf_06_desc), stringResource(R.string.badge_auditable))
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Prototype Application",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 11.sp
-                )
-
-                if (BuildConfig.DEBUG) {
-                    TextButton(onClick = onNavigateToMlTest) {
-                        Text("ML Test", color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
+@Composable
+private fun WorkflowCardItem(num: String, title: String, desc: String, badge: String) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, BorderGray),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(num, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PrimaryNavy)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextCharcoal)
+                    Surface(shape = RoundedCornerShape(4.dp), color = CardTintBlue) {
+                        Text(badge, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = PrimaryNavy, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(desc, fontSize = 11.sp, color = TextMuted)
+            }
+        }
+    }
+}
 
+@Composable
+private fun EvidenceIntegritySection() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = TealContainer
+        ) {
+            Text(
+                text = stringResource(R.string.home_integrity_pill),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = PrimaryNavy,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = stringResource(R.string.home_integrity_title),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextCharcoal
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = stringResource(R.string.home_integrity_subtitle),
+            fontSize = 12.sp,
+            color = TextMuted,
+            lineHeight = 16.sp
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            TrustFeatureCard(
+                stringResource(R.string.trust_01_title),
+                stringResource(R.string.trust_01_desc),
+                Modifier.weight(1f)
+            )
+            TrustFeatureCard(
+                stringResource(R.string.trust_02_title),
+                stringResource(R.string.trust_02_desc),
+                Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            TrustFeatureCard(
+                stringResource(R.string.trust_03_title),
+                stringResource(R.string.trust_03_desc),
+                Modifier.weight(1f)
+            )
+            TrustFeatureCard(
+                stringResource(R.string.trust_04_title),
+                stringResource(R.string.trust_04_desc),
+                Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrustFeatureCard(title: String, desc: String, modifier: Modifier = Modifier) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, BorderGray),
+        modifier = modifier
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PrimaryNavy)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(desc, fontSize = 10.sp, color = TextMuted, lineHeight = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun PortalFooterSection() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MidnightGradient)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ShieldIcon(size = 22.dp, color = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Field Officer Edition",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    text = stringResource(R.string.app_name),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
                 )
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = stringResource(R.string.footer_description),
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = stringResource(R.string.footer_tagline),
+                color = Color.White.copy(alpha = 0.65f),
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = stringResource(R.string.footer_copyright),
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 10.sp
+            )
         }
     }
 }

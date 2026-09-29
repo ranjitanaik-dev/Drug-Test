@@ -40,6 +40,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,10 +52,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ncb.drugtestcompanion.audio.VoiceAnnouncementManager
 import com.ncb.drugtestcompanion.domain.model.ClassificationResult
 import com.ncb.drugtestcompanion.domain.model.TestRecord
 import com.ncb.drugtestcompanion.domain.model.TestResultCategory
+import com.ncb.drugtestcompanion.pdf.ReportIntentHelper
+import com.ncb.drugtestcompanion.pdf.ReportState
+import com.ncb.drugtestcompanion.ui.common.GradientButton
 import com.ncb.drugtestcompanion.ui.common.ShieldIcon
+import com.ncb.drugtestcompanion.ui.common.getLocalizedResultCategory
 import com.ncb.drugtestcompanion.ui.theme.ContainerTintBlue
 import com.ncb.drugtestcompanion.ui.theme.DeepTrustNavy
 import com.ncb.drugtestcompanion.ui.theme.HairlineBorder
@@ -65,13 +72,10 @@ import com.ncb.drugtestcompanion.ui.theme.PositiveCrimson
 import com.ncb.drugtestcompanion.ui.theme.PositiveRoseContainer
 import com.ncb.drugtestcompanion.ui.theme.SecurityTeal
 import com.ncb.drugtestcompanion.ui.theme.SecurityTealContainer
+import com.ncb.drugtestcompanion.ui.theme.SoftLightBlueBackgroundGradient
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-import com.ncb.drugtestcompanion.pdf.ReportIntentHelper
-import com.ncb.drugtestcompanion.pdf.ReportState
-import com.ncb.drugtestcompanion.ui.common.getLocalizedResultCategory
 
 @Composable
 fun ResultScreenContent(
@@ -86,13 +90,26 @@ fun ResultScreenContent(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
+    // Voice Announcement for Test Result
+    val voiceManager = remember(context) { VoiceAnnouncementManager(context.applicationContext) }
+    val resultVoiceText = when (classification.result) {
+        TestResultCategory.POSITIVE -> "Test result: Positive"
+        TestResultCategory.NEGATIVE -> "Test result: Negative"
+        else -> "Test result: Inconclusive"
+    }
+
+    LaunchedEffect(classification.result) {
+        voiceManager.speak(resultVoiceText)
+    }
+
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = Color(0xFFFAF8FF)
+        color = Color.Transparent
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(SoftLightBlueBackgroundGradient)
                 .padding(16.dp)
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -144,21 +161,19 @@ fun ResultScreenContent(
                 ForensicChainOfCustodyCard(testRecord = testRecord, context = context)
             }
 
-            // 7. Action Buttons
-            Button(
+            // 7. Action Buttons (Gradient Primary Action Button)
+            GradientButton(
+                text = "Generate & Sign Digital Docket",
                 onClick = {
                     Toast.makeText(context, "Digital Docket Signed & Attested", Toast.LENGTH_SHORT).show()
                 },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = DeepTrustNavy),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                ShieldIcon(size = 18.dp, color = Color.White)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Generate & Sign Digital Docket", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            }
+                height = 52.dp,
+                fontSize = 15,
+                leadingIcon = {
+                    ShieldIcon(size = 18.dp, color = Color.White)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
 
             when (reportState) {
                 is ReportState.Idle -> {

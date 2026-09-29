@@ -107,7 +107,8 @@ class QualityCheckViewModelTest {
 
         coEvery { qualityGate.analyzeImage(testPath, profileA) } returns QualityResult.ImageValid(
             roiExtractionResult = roiSuccess,
-            mlRoiBitmap = mockk(relaxed = true)
+            rawMlRoiBitmap = mockk(relaxed = true),
+            calibratedMlRoiBitmap = mockk(relaxed = true)
         )
 
         // Mock saveTestRecordUseCase to return a TestRecord matching the ClassificationResult EXACTLY
@@ -169,7 +170,8 @@ class QualityCheckViewModelTest {
 
         coEvery { qualityGate.analyzeImage(testPath, profileA) } returns QualityResult.ImageValid(
             roiExtractionResult = roiSuccess,
-            mlRoiBitmap = mockk(relaxed = true)
+            rawMlRoiBitmap = mockk(relaxed = true),
+            calibratedMlRoiBitmap = mockk(relaxed = true)
         )
 
         coEvery { saveTestRecordUseCase.invoke(testPath, any(), any()) } returns TestRecord(

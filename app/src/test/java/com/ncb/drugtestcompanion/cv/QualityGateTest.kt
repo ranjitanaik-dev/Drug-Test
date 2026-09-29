@@ -1,5 +1,6 @@
 package com.ncb.drugtestcompanion.cv
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.PointF
 import com.ncb.drugtestcompanion.domain.model.QualityFailureReason
@@ -12,17 +13,21 @@ import org.junit.Test
 
 class QualityGateTest {
 
+    private lateinit var context: Context
     private lateinit var cardDetector: CardDetector
+    private lateinit var colorCalibrator: ColorCalibrator
     private lateinit var qualityGate: QualityGate
 
     @Before
     fun setUp() {
+        context = mockk(relaxed = true)
         cardDetector = mockk()
+        colorCalibrator = ColorCalibrator()
         every { cardDetector.detectCard(any()) } returns CardDetectionResult.Detected(
             corners = listOf(PointF(10f, 10f), PointF(400f, 10f), PointF(400f, 300f), PointF(10f, 300f)),
             confidence = 0.9f
         )
-        qualityGate = QualityGate(cardDetector)
+        qualityGate = QualityGate(context, cardDetector, colorCalibrator)
     }
 
     @Test

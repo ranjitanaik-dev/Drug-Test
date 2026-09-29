@@ -1,10 +1,10 @@
 package com.ncb.drugtestcompanion.ui.qualitycheck
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -19,15 +19,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ncb.drugtestcompanion.R
 import com.ncb.drugtestcompanion.domain.model.QualityFailureReason
 import com.ncb.drugtestcompanion.domain.model.ReferenceCardProfile
-import com.ncb.drugtestcompanion.pdf.ReportIntentHelper
 import com.ncb.drugtestcompanion.ui.result.ResultScreenContent
 import com.ncb.drugtestcompanion.viewmodel.QualityCheckViewModel
 
@@ -40,7 +40,6 @@ fun QualityCheckScreen(
     viewModel: QualityCheckViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
 
     LaunchedEffect(imagePath, selectedProfile) {
         viewModel.runQualityCheck(imagePath, selectedProfile)
@@ -62,7 +61,7 @@ fun QualityCheckScreen(
                     CircularProgressIndicator()
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Checking image quality & classifying result...",
+                        text = stringResource(R.string.checking_quality),
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
@@ -71,7 +70,7 @@ fun QualityCheckScreen(
                     val classification = state.classificationResult
                     if (classification != null) {
                         val reportState by viewModel.reportState.collectAsState()
-                        
+
                         ResultScreenContent(
                             classification = classification,
                             testRecord = state.savedRecord,
@@ -85,34 +84,36 @@ fun QualityCheckScreen(
                             onSharePdf = {
                                 state.savedRecord?.let { record ->
                                     viewModel.generatePdfReport(record)
-                                    // Wait, if we share, we just want to export and then share.
-                                    // Let's just handle it via the ResultScreenContent taking ReportState.
                                 }
                             }
                         )
                     } else {
                         Text(
-                            text = "PASS",
+                            text = stringResource(R.string.quality_check_pass),
                             color = Color(0xFF2E7D32),
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "The captured image meets all quality standards.",
+                            text = stringResource(R.string.quality_check_pass_desc),
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = onProceed) {
-                            Text("Continue")
-                        }
+                        com.ncb.drugtestcompanion.ui.common.GradientButton(
+                            text = stringResource(R.string.btn_continue) + "  →",
+                            onClick = onProceed,
+                            height = 48.dp,
+                            fontSize = 14,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
 
                 is QualityCheckUiState.Invalid -> {
                     Text(
-                        text = "QUALITY CHECK FAILED",
+                        text = stringResource(R.string.quality_check_failed),
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
@@ -125,9 +126,13 @@ fun QualityCheckScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = onRetakePhoto) {
-                        Text("Retake Photo")
-                    }
+                    com.ncb.drugtestcompanion.ui.common.GradientButton(
+                        text = stringResource(R.string.btn_retake_photo),
+                        onClick = onRetakePhoto,
+                        height = 48.dp,
+                        fontSize = 14,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }

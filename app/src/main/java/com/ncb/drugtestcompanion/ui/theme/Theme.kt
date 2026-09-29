@@ -5,23 +5,25 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val FieldOfficerLightColorScheme = lightColorScheme(
-    primary = DeepTrustNavy,
+private val PremiumDualToneColorScheme = lightColorScheme(
+    primary = PrimaryNavy,
     onPrimary = Color.White,
-    primaryContainer = ContainerTintBlue,
-    onPrimaryContainer = DeepTrustNavy,
-    secondary = PrimaryNavyBlue,
+    primaryContainer = CardTintBlue,
+    onPrimaryContainer = PrimaryNavy,
+    secondary = TealAccent,
     onSecondary = Color.White,
-    secondaryContainer = ContainerTintGray,
-    onSecondaryContainer = DeepTrustNavy,
+    secondaryContainer = TealContainer,
+    onSecondaryContainer = PrimaryNavy,
+    tertiary = ElectricBlue,
+    onTertiary = Color.White,
     background = CanvasBackground,
-    onBackground = DeepTrustNavy,
+    onBackground = TextCharcoal,
     surface = SurfaceWhite,
-    onSurface = DeepTrustNavy,
-    surfaceVariant = ContainerTintBlue,
-    onSurfaceVariant = Color(0xFF475569),
-    outline = HairlineBorder,
-    outlineVariant = Color(0xFFCBD5E1)
+    onSurface = TextCharcoal,
+    surfaceVariant = CardTintGray,
+    onSurfaceVariant = TextMuted,
+    outline = BorderGray,
+    outlineVariant = BorderBlueLight
 )
 
 @Composable
@@ -29,7 +31,7 @@ fun DrugTestCompanionTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = FieldOfficerLightColorScheme,
+        colorScheme = PremiumDualToneColorScheme,
         typography = Typography,
         content = content
     )

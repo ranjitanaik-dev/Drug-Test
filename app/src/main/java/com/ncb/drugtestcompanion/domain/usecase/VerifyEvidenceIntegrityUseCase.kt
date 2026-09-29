@@ -30,7 +30,7 @@ class VerifyEvidenceIntegrityUseCase @Inject constructor(
 ) {
 
     operator fun invoke(record: TestRecord, imageFileOverride: File? = null): IntegrityVerificationResult {
-        // 1. Verify Digital Signature
+        // 1. Verify Digital Signature against stored record
         val unsignedRecord = record.copy(signature = "")
         val isSignatureValid = keystoreSigner.verifySignature(unsignedRecord, record.signature)
 
