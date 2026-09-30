@@ -170,7 +170,7 @@ Officers can access the **Test History** module at any time to search, review, o
 ## Installation & Setup
 
 ### For Field Users
-1. Download the latest Android APK from the [GitHub Releases](https://github.com/ranjitanaik-dev/Drug-Test/releases/tag/v1.0.0) section.
+1. Download the latest Android APK from the [GitHub Releases](https://github.com/ranjitanaik-dev/Drug-Test/releases) section.
 2. Install the `Niriksh-v1.0.0.apk` file on an Android device running **Android 8.0 (API Level 26)** or higher.
 3. Launch **Niriksh** and grant **Camera** and **Location** permissions when prompted.
 
