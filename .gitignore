@@ -1,15 +1,72 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
+# Built-in file ignores for Android Studio / Gradle / Kotlin / Compose / Hilt / KSP / Room / TFLite
+
+# =========================================================================
+# Gradle & Build Directories
+# =========================================================================
+.gradle/
+build/
+*/build/
+app/build/
 /build
 /captures
-.externalNativeBuild
-.cxx
+.externalNativeBuild/
+.cxx/
+
+# =========================================================================
+# Local Machine & Environment Configuration
+# =========================================================================
 local.properties
+.env
+.env.*
+
+# =========================================================================
+# Android Studio / IntelliJ IDE Files
+# =========================================================================
+.idea/
+*.iml
+*.ipr
+*.iws
+.navigation/
+
+# =========================================================================
+# Kotlin / KSP / Compiler Generated Cache
+# =========================================================================
+.kotlin/
+kotlin-js-store/
+*.salive
+
+# =========================================================================
+# Android APK / AAB / KeyStores & Signing Credentials
+# =========================================================================
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p12
+*.pepk
+
+# =========================================================================
+# Operating System Files
+# =========================================================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# =========================================================================
+# Logs & Temporary Files
+# =========================================================================
+*.log
+*.tmp
+*.bak
+*.swp
+
+# =========================================================================
+# DO NOT IGNORE Project Source Code, Resources, Assets, & Essential Models
+# =========================================================================
+!app/src/main/assets/
+!app/src/main/assets/*.tflite
+!app/src/main/assets/*.txt
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!gradle/libs.versions.toml
